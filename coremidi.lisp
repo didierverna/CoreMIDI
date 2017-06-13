@@ -212,29 +212,29 @@ input port."
 (defun initialize ()
   "Prepare a midi-client and required resources."
   (unless *midi-client*
-    (cffi:with-foreign-objects ((client 'object-ref)
-				(in-port 'object-ref)
-				(out-port 'object-ref))
-      (with-cf-strings ((client-name "cl-client")
-			(in-portname "in-port-on-cl-client")
-			(out-portname "out-port-on-cl-client"))
+    (cffi:with-foreign-objects ((client 'client-ref)
+				(in-port 'port-ref)
+				(out-port 'port-ref))
+      (with-cf-strings ((client-name "CommonLispClient")
+			(in-port-name "CommonLispClientInputPort")
+			(out-port-name "CommonLispClientOutputPort"))
 	(client-create client-name
 		       (cffi:callback midi-notify-proc)
 		       (cffi-sys:null-pointer)
 		       client)
-	(let ((client (cffi:mem-ref client 'object-ref)))
-	  (input-port-create client in-portname
+	(let ((client (cffi:mem-ref client 'client-ref)))
+	  (input-port-create client in-port-name
 			     #+ccl(cffi:callback handle-incoming-packets)
 			     #-ccl(cffi:foreign-symbol-pointer
 				   "handleIncomingPackets")
 			     (cffi-sys:null-pointer)
 			     in-port)
-	  (output-port-create client out-portname out-port)
+	  (output-port-create client out-port-name out-port)
 	  #-ccl (create-incoming-packets-handler-thread)
 	  (setf *midi-client*
 		(list :client client
-		      :in-port (cffi:mem-ref in-port 'object-ref)
-		      :out-port (cffi:mem-ref out-port 'object-ref)
+		      :in-port (cffi:mem-ref in-port 'port-ref)
+		      :out-port (cffi:mem-ref out-port 'port-ref)
 		      :connected-sources nil
 		      :in-action-handlers nil
 		      :virtual-endpoints nil)))))))
