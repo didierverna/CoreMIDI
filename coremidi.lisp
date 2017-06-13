@@ -1,4 +1,4 @@
-(in-package :midi)
+(in-package :coremidi)
 
 (defun display-name (object)
   "Return OBJECT's display name property."

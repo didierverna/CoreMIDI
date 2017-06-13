@@ -1,4 +1,4 @@
-(defpackage #:midi
+(defpackage #:coremidi
   (:use #:cl)
   (:export
     ;; From cffi.lisp:

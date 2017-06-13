@@ -1,4 +1,4 @@
-(in-package :midi)
+(in-package :coremidi)
 
 (defun now ()
   (* 1.0d-9 #+ccl(ccl::current-time-in-nanoseconds)
