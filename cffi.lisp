@@ -43,6 +43,115 @@
   (packet (:struct packet) :count 1))
 
 
+;; ==========================================================================
+;; MIDI Devices
+;; ==========================================================================
+
+(cffi:defcfun (device-get-entity "MIDIDeviceGetEntity") entity-ref
+  "Returns one of a given device's entities."
+  (device device-ref)
+  (entity-index-0 :int))
+
+(cffi:defcfun (device-get-number-of-entities "MIDIDeviceGetNumberOfEntities")
+    :int
+  "Returns the number of entities in a given device."
+  (device device-ref))
+
+(cffi:defcfun (get-device "MIDIGetDevice") device-ref
+  "Returns one of the devices in the system."
+  (device-index-0 :int))
+
+(cffi:defcfun (get-number-of-devices "MIDIGetNumberOfDevices") :int
+  "Returns the number of devices in the system.")
+
+
+;; ==========================================================================
+;; MIDI External Devices
+;; ==========================================================================
+
+(cffi:defcfun (get-external-device "MIDIGetExternalDevice") device-ref
+  "Returns one of the external devices in the system."
+  (device-index-0 :int))
+
+(cffi:defcfun
+    (get-number-of-external-devices "MIDIGetNumberOfExternalDevices")
+    :int
+  "Returns the number of external MIDI devices in the system.")
+
+
+;; ==========================================================================
+;; MIDI Entities
+;; ==========================================================================
+
+(cffi:defcfun (entity-get-destination "MIDIEntityGetDestination") endpoint-ref
+  "Returns one of a given entity's destinations."
+  (entity entity-ref)
+  (dest-index-0 :int))
+
+(cffi:defcfun (entity-get-device "MIDIEntityGetDevice") :int
+  "Returns an entity's device."
+  (in-entity entity-ref)
+  (out-device :pointer))
+
+(cffi:defcfun
+    (entity-get-number-of-destinations "MIDIEntityGetNumberOfDestinations")
+    :int
+  "Returns the number of destinations in a given entity."
+  (entity entity-ref))
+
+(cffi:defcfun
+    (entity-get-number-of-sources "MIDIEntityGetNumberOfSources")
+    :int
+  "Returns the number of sources in a given entity."
+  (entity entity-ref))
+
+(cffi:defcfun (entity-get-source "MIDIEntityGetSource") endpoint-ref
+  "Returns one of a given entity's sources"
+  (entity entity-ref)
+  (source-index-0 :int))
+
+
+;; ==========================================================================
+;;; MIDI Endpoints
+;; ==========================================================================
+
+(cffi:defcfun (destination-create "MIDIDestinationCreate") :int
+  "Creates a virtual destination in client."
+  (client client-ref)
+  (name :pointer)
+  (read-proc :pointer)
+  (ref-con :pointer)
+  (out-dest :pointer))
+
+(cffi:defcfun (endpoint-dispose "MIDIEndpointDispose") :int
+  "Disposes a virtual source or destination your client created."
+  (endpt endpoint-ref))
+
+(cffi:defcfun (endpoint-get-entity "MIDIEndpointGetEntity") :int
+  "Returns an endpoint's entity."
+  (in-endpoint endpoint-ref)
+  (out-entity :pointer))
+
+(cffi:defcfun (get-destination "MIDIGetDestination") endpoint-ref
+  "Returns one of the destinations in the system."
+  (dest-index-0 :int))
+
+(cffi:defcfun (get-number-of-destinations "MIDIGetNumberOfDestinations") :int
+  "Returns the number of destinations in the system.")
+
+(cffi:defcfun (get-number-of-sources "MIDIGetNumberOfSources") :int
+  "Returns the number of sources in the system.")
+
+(cffi:defcfun (get-source "MIDIGetSource") endpoint-ref
+  "Returns one of the sources in the system."
+  (source-index-0 :int))
+
+(cffi:defcfun (source-create "MIDISourceCreate") :int
+  "Creates a virtual source in a client."
+  (client client-ref)
+  (name :pointer)
+  (out-src :pointer))
+
 
 ;; ==========================================================================
 ;; MIDI Ports
@@ -164,116 +273,6 @@ source."
 (cffi:defcfun (send-sysex "MIDISendSysex") :int
   "Sends a single system-exclusive event, asynchronously."
   (request :pointer))
-
-
-;; ==========================================================================
-;; MIDI External Devices
-;; ==========================================================================
-
-(cffi:defcfun (get-external-device "MIDIGetExternalDevice") device-ref
-  "Returns one of the external devices in the system."
-  (device-index-0 :int))
-
-(cffi:defcfun
-    (get-number-of-external-devices "MIDIGetNumberOfExternalDevices")
-    :int
-  "Returns the number of external MIDI devices in the system.")
-
-
-;; ==========================================================================
-;; MIDI Entities
-;; ==========================================================================
-
-(cffi:defcfun (entity-get-destination "MIDIEntityGetDestination") endpoint-ref
-  "Returns one of a given entity's destinations."
-  (entity entity-ref)
-  (dest-index-0 :int))
-
-(cffi:defcfun (entity-get-device "MIDIEntityGetDevice") :int
-  "Returns an entity's device."
-  (in-entity entity-ref)
-  (out-device :pointer))
-
-(cffi:defcfun
-    (entity-get-number-of-destinations "MIDIEntityGetNumberOfDestinations")
-    :int
-  "Returns the number of destinations in a given entity."
-  (entity entity-ref))
-
-(cffi:defcfun
-    (entity-get-number-of-sources "MIDIEntityGetNumberOfSources")
-    :int
-  "Returns the number of sources in a given entity."
-  (entity entity-ref))
-
-(cffi:defcfun (entity-get-source "MIDIEntityGetSource") endpoint-ref
-  "Returns one of a given entity's sources"
-  (entity entity-ref)
-  (source-index-0 :int))
-
-
-;; ==========================================================================
-;;; MIDI Endpoints
-;; ==========================================================================
-
-(cffi:defcfun (destination-create "MIDIDestinationCreate") :int
-  "Creates a virtual destination in client."
-  (client client-ref)
-  (name :pointer)
-  (read-proc :pointer)
-  (ref-con :pointer)
-  (out-dest :pointer))
-
-(cffi:defcfun (endpoint-dispose "MIDIEndpointDispose") :int
-  "Disposes a virtual source or destination your client created."
-  (endpt endpoint-ref))
-
-(cffi:defcfun (endpoint-get-entity "MIDIEndpointGetEntity") :int
-  "Returns an endpoint's entity."
-  (in-endpoint endpoint-ref)
-  (out-entity :pointer))
-
-(cffi:defcfun (get-destination "MIDIGetDestination") endpoint-ref
-  "Returns one of the destinations in the system."
-  (dest-index-0 :int))
-
-(cffi:defcfun (get-number-of-destinations "MIDIGetNumberOfDestinations") :int
-  "Returns the number of destinations in the system.")
-
-(cffi:defcfun (get-number-of-sources "MIDIGetNumberOfSources") :int
-  "Returns the number of sources in the system.")
-
-(cffi:defcfun (get-source "MIDIGetSource") endpoint-ref
-  "Returns one of the sources in the system."
-  (source-index-0 :int))
-
-(cffi:defcfun (source-create "MIDISourceCreate") :int
-  "Creates a virtual source in a client."
-  (client client-ref)
-  (name :pointer)
-  (out-src :pointer))
-
-
-;; ==========================================================================
-;; MIDI Devices
-;; ==========================================================================
-
-(cffi:defcfun (device-get-entity "MIDIDeviceGetEntity") entity-ref
-  "Returns one of a given device's entities."
-  (device device-ref)
-  (entity-index-0 :int))
-
-(cffi:defcfun (device-get-number-of-entities "MIDIDeviceGetNumberOfEntities")
-    :int
-  "Returns the number of entities in a given device."
-  (device device-ref))
-
-(cffi:defcfun (get-device "MIDIGetDevice") device-ref
-  "Returns one of the devices in the system."
-  (device-index-0 :int))
-
-(cffi:defcfun (get-number-of-devices "MIDIGetNumberOfDevices") :int
-  "Returns the number of devices in the system.")
 
 
 ;; ==========================================================================

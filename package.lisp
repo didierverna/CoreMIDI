@@ -30,9 +30,6 @@
     #:get-number-of-sources
     #:get-source
     #:source-create
-    ;; MIDI Clients:
-    #:client-create
-    #:client-dispose
     ;; MIDI Ports:
     #:input-port-create
     #:output-port-create
@@ -51,6 +48,9 @@
     #:rescan
     #:send
     #:send-sysex
+    ;; MIDI Clients:
+    #:client-create
+    #:client-dispose
 
     #:initialize
     #:midiobject-display-name
