@@ -44,6 +44,7 @@
     #:packet-list-init
     ;; MIDI Objects and Properties:
     #:object-find-by-unique-id
+    #:object-string-property
     ;; MIDI I/O:
     #:flush-output
     #:received
