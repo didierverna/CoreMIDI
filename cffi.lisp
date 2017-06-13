@@ -97,12 +97,6 @@ The client may send outgoing MIDI messages to any MIDI destination."
   "Prepares a MIDIPacketList to be built up dynamically."
   (pktlist :pointer))
 
-(cffi:defcfun (packet-next "MIDIPacketNext") :pointer
-  "Advances a MIDIPacket pointer.
-The pointer is advanced to the MIDIPacket that immediately follows a given
-packet in memory, for packets that are part of a MIDIPacketList array."
-  (pkt :pointer))
-
 
 ;; ==========================================================================
 ;; MIDI Objects and Properties
