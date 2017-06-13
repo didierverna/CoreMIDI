@@ -12,6 +12,9 @@
     #:device-get-number-of-entities
     #:get-device
     #:get-number-of-devices
+    ;; MIDI External Devices:
+    #:get-external-device
+    #:get-number-of-external-devices
     ;; MIDI Entities
     #:entity-get-destination
     #:entity-get-device
