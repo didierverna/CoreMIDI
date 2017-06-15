@@ -87,13 +87,14 @@ input port."
 			 pktlist '(:struct packet-list) 'num-packets))
 	(packet (cffi:foreign-slot-pointer
 		 pktlist '(:struct packet-list) 'packet)))
-    (loop for i from 0 below packets-number do
-      (process-packet packet (cffi-sys:pointer-address src-conn-ref-con))
-      (setf packet (cffi-sys:inc-pointer
-		    (cffi:foreign-slot-pointer packet '(:struct packet)
-					       'data)
-		    (cffi:foreign-slot-value packet '(:struct packet)
-					     'length))))))
+    (loop :for i :from 0 :below packets-number
+	  :do (process-packet packet
+			      (cffi-sys:pointer-address src-conn-ref-con))
+	      (setf packet (cffi-sys:inc-pointer
+			    (cffi:foreign-slot-pointer packet '(:struct packet)
+						       'data)
+			    (cffi:foreign-slot-value packet '(:struct packet)
+						     'length))))))
 
 (defun set-midi-callback (source status handle)
   "Register handle-function that process incoming MIDI message via input-port."
