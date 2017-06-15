@@ -1,5 +1,9 @@
 (in-package :coremidi)
 
+(defmacro while (test &rest body)
+  `(do () ((not ,test))
+     ,@body))
+
 (defun now ()
   (* 1.0d-9 #+ccl(ccl::current-time-in-nanoseconds)
 	    #-ccl(cffi:foreign-funcall "mach_absolute_time" :int64)))

@@ -39,40 +39,141 @@
 
 
 (defvar *midi-client* nil
-  "The property-list which have information of current midi-client object.
- That properties are (:client :in-port :out-port :connected-sources :in-action-handlers :virtual-endpoints)")
+  "The current MIDI client as a property-list.
+Properties are:
+:client
+:in-port and :out-port
+:connected-sources
+:in-action-handlers
+:virtual-endpoints")
 
-(defun process-packet (pkt source)
-  "Process PKT coming from SOURCE.
-This function is called by HANDLE-INCOMING-PACKETS, supplied when creating an
-input port."
-  (labels ((get-handle (source status)
-	     (let* ((handle-plist (cdr (assoc source (getf *midi-client* :in-action-handlers)))))
-	       (getf handle-plist status))))
-    (let ((i 0))
-      (cffi:with-foreign-slots ((length data) pkt (:struct packet))
-	(handler-case
-	    (loop while (> length i) do
-	      (let* ((head (cffi:mem-aref data :unsigned-char i))
-		     (status (logand head #xf0))
-		     (chan (1+ (logand head #x0f))))
-		(case status
-		  (#xA0 (incf i 3))	 ;polytouch
-		  ((#xC0 #xD0) (incf i 2)) ;program / touch
-		  (#xE0 (progn
-			  (alexandria:when-let ((handle (get-handle source :bend))) ;bend
-			    (funcall handle chan (logior (ash (cffi:mem-aref data :unsigned-char (+ i 2)) 7)
-							 (cffi:mem-aref data :unsigned-char (+ i 1)))
-				     0))
-			  (incf i 3)))
-		  (otherwise (progn (alexandria:when-let* 
-					((value (cffi:mem-aref data :unsigned-char (+ i 2)))
-					 (handle (get-handle source (cond ((or (= status #x80) (and (= status #x90) (zerop value))) :note-off)
-									  ((= status #x90) :note-on)
-									  ((= status #xB0) :cc)))))
-				      (funcall handle chan (cffi:mem-aref data :unsigned-char (+ i 1)) value))
-				    (incf i 3))))))
-	  (error (c) (format t "error ~a in coremidi handle thread~%" c)))))))
+(defun client-in-action-handlers (&optional (client *midi-client*))
+  "Return CLIENT's input action handlers."
+  (getf *midi-client* :in-action-handlers))
+(defun (setf client-in-action-handlers)
+    (handlers &optional (client *midi-client*))
+  "Set CLIENT's input action handlers."
+  (setf (getf client :in-action-handlers) handlers))
+
+
+(defconstant +note-off+                #x80)
+(defconstant +note-on+                 #x90)
+(defconstant +polyphonic-aftertouch+   #xA0)
+(defconstant +control/mode-change+     #xB0)
+(defconstant +program-change+          #xC0)
+(defconstant +channel-aftertouch+      #xD0)
+(defconstant +pitch-wheel-range+       #xE0)
+(defconstant +system-exclusive+        #xF0)
+;; System Common
+;;           Undefined                 #xF1
+(defconstant +song-position-pointer+   #xF2)
+(defconstant +song-select+             #xF3)
+;;           Undefined                 #xF4
+;;           Undefined                 #xF5
+(defconstant +tune-request+            #xF6)
+(defconstant +end-of-system-exclusive+ #xF7)
+;; System Real Time
+(defconstant +timing-clock+            #xF8)
+;;           Undefined                 #xF9
+(defconstant +start+                   #xFA)
+(defconstant +continue+                #xFB)
+(defconstant +stop+                    #xFC)
+;;           Undefined                 #xFD
+(defconstant +active-sensing+          #xFE)
+(defconstant +system-reset+            #xFF)
+
+(defun process-packet
+    (packet source
+     &aux (handlers (cdr (assoc source (client-in-action-handlers))))
+	  (i 0))
+  "Process PACKET coming from SOURCE.
+Each MIDI message in PACKET is dispatched to the appropriate handler, if one
+is installed."
+  (unless handlers
+    (cffi:with-foreign-slots ((length data) packet (:struct packet))
+      (handler-case
+	  (while (< i length)
+	    (let ((status  (cffi:mem-aref data :unsigned-char i)))
+	      (cond
+		;; Note On, Note Off and Polyphonic Aftertouch
+		;; #### NOTE: contrary to the original code, I don't it's
+		;; right to translate a Note On message with velocity 0 to a
+		;; Note Off one here. We're still too low level. Rather, it
+		;; should be the job of the handler to do so.
+		((and (>= status +note-off+) (< status +control/mode-change+))
+		 (alexandria:when-let*
+		     ((message (logand status #xf0))
+		      (handler (getf handlers message))
+		      (channel (1+ (logand status #x0f)))
+		      (data1 (cffi:mem-aref data :unsigned-char (+ i 1)))
+		      (data2 (cffi:mem-aref data :unsigned-char (+ i 2))))
+		   (funcall handler channel data1 data2))
+		 (incf i 3))
+		;; Control/Mode Change
+		((and (>= status +control/mode-change+)
+		      (< status +program-change+))
+		 (alexandria:when-let*
+		     ((handler (getf handlers +control/mode-change+))
+		      (channel (1+ (logand status #x0f)))
+		      (number (cffi:mem-aref data :unsigned-char (+ i 1)))
+		      (value (if (or (< number #x60)
+				     (= number #x7A)
+				     ;; #### FIXME: not sure about this one
+				     (= number #x7E))
+				 (cffi:mem-aref data :unsigned-char (+ i 2))
+			       'unused)))
+		   (funcall handler channel number value))
+		 (incf i (if (eq value 'unused) 2 3)))
+		;; Program Change and Channel Aftertouch
+		;; Almost the same as Note On, Note Off and Polyphonic
+		;; Aftertouch, except that there is no data2.
+		((and (>= status +program-change+)
+		      (< status +pitch-wheel-range+))
+		 (alexandria:when-let*
+		     ((message (logand status #xf0))
+		      (handler (getf handlers message))
+		      (channel (1+ (logand status #x0f)))
+		      (data1 (cffi:mem-aref data :unsigned-char (+ i 1))))
+		   (funcall handler channel data1))
+		 (incf i 2))
+		;; Pitch Wheel Range
+		((and (>= status +pitch-wheel-range+)
+		      (< status +system-exclusive+))
+		 (alexandria:when-let*
+		     ((handler (getf handlers +pitch-wheel-range+))
+		      (channel (1+ (logand status #x0f)))
+		      (lsb (cffi:mem-aref data :unsigned-char (+ i 1)))
+		      (msb (cffi:mem-aref data :unsigned-char (+ i 2))))
+		   (funcall handler channel (logior (ash msb 7) lsb)))
+		 (incf i 3))
+		;; System Exclusive
+		((= status +system-exclusive+)
+		 ;; #### FIXME: implement.
+		 )
+		;; Song Position Pointer
+		((= status +song-position-pointer+)
+		 (alexandria:when-let*
+		     ((handler (getf handlers +song-position-pointer+))
+		      (lsb (cffi:mem-aref data :unsigned-char (+ i 1)))
+		      (msb (cffi:mem-aref data :unsigned-char (+ i 2))))
+		   (funcall handler (logior (ash msb 7) lsb)))
+		 (incf i 3))
+		;; Song Select
+		((= status +song-select+)
+		 (alexandria:when-let*
+		     ((handler (getf handlers +song-select+))
+		      (data1 (cffi:mem-aref data :unsigned-char (+ i 1))))
+		   (funcall handler data1))
+		 (incf i 2))
+		;; The rest
+		;; #### NOTE: some statuses in the range below are undefined,
+		;; but it doesn't really matter since we wouldn't have a
+		;; handler for them anyway.
+		((and (>= status +tune-request+) (<= status +system-reset+))
+		 (alexandria:when-let ((handler (getf handlers status)))
+		   (funcall handler))
+		 (incf i)))))
+	(error (c) (format t "Error while processing packet: ~A~%" c))))))
 
 
 ;;; CCL has FOREIGN-THREAD-CALLBACK, so we can provide the callback function
@@ -98,13 +199,13 @@ input port."
 
 (defun set-midi-callback (source status handle)
   "Register handle-function that process incoming MIDI message via input-port."
-  (let ((action-handlers (getf *midi-client* :in-action-handlers)))
+  (let ((action-handlers (client-in-action-handlers)))
     (let ((handle-plist (assoc source action-handlers)))
       (unless handle-plist
 	(port-connect-source (getf *midi-client* :in-port) source (cffi-sys:make-pointer source))
 	(pushnew source (getf *midi-client* :connected-sources))
-	(let ((initial-plist (cons source (list :note-on nil :note-off nil :cc nil :bend nil))))
-	  (setf (getf *midi-client* :in-action-handlers) (cons initial-plist action-handlers)
+	(let ((initial-plist (cons source (list +note-on+ nil +note-off+ nil +control/mode-change+ nil +pitch-wheel-range+ nil))))
+	  (setf (client-in-action-handlers) (cons initial-plist action-handlers)
 		handle-plist initial-plist)))
       (setf (getf (cdr handle-plist) status) handle))))
 
@@ -128,12 +229,7 @@ input port."
 
 (defun midi-send-at (hosttime destination status channel data1 &optional data2)
   (send-midi-message destination hosttime
-		     (+ (1- (alexandria:clamp channel 1 16))
-			(ecase status
-			  (:note-off #x80)
-			  (:note-on #x90)
-			  (:cc #xB0)
-			  (:program-change #xC0)))
+		     (+ (1- (alexandria:clamp channel 1 16)) status)
 		     data1 data2))
 
 (defun midi-send (destination status channel data1 &optional data2)
