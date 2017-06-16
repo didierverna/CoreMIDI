@@ -76,6 +76,7 @@ Properties are:
 :in-port and :out-port
 :sources
 :message-handlers
+:notification-handlers
 :virtual-endpoints")
 
 (defun client-message-handlers (&optional (client *midi-client*))
@@ -85,6 +86,14 @@ Properties are:
     (handlers &optional (client *midi-client*))
   "Set CLIENT's message handlers."
   (setf (getf client :message-handlers) handlers))
+
+(defun client-notification-handlers (&optional (client *midi-client*))
+  "Return CLIENT's notification handlers."
+  (getf client :notification-handlers))
+(defun (setf client-notification-handlers)
+    (handlers &optional (client *midi-client*))
+  "Set CLIENT's notification handlers."
+  (setf (getf client :notification-handlers) handlers))
 
 
 ;; ==========================================================================
@@ -301,14 +310,12 @@ is installed."
 (defconstant +serial-port-owner-changed+ 6)
 (defconstant +io-error+ 7)
 
-(defvar *midi-notify-handler* nil)
-
-(defun add-midi-notify-callback (handle)
-  (alexandria:appendf *midi-notify-handler* (list handle)))
-
-(defun set-midi-notify-callback (handle)
-  (setf *midi-notify-handler* (list handle)))
-
+(defun register-notification-handler
+    (notification handler &optional (client *midi-client*)
+     &aux (handlers (client-notification-handlers client)))
+  "Register HANDLER to process CoreMIDI NOTIFICATION."
+  (setf (getf handlers notification) handler
+	(client-notification-handlers client) handlers))
 
 (cffi:defcallback handle-notification
     :void ((message :pointer) (ref-con :pointer))
@@ -347,4 +354,5 @@ is installed."
 		      :out-port (cffi:mem-ref out-port 'port-ref)
 		      :sources nil
 		      :message-handlers nil
+		      :notification-handlers nil
 		      :virtual-endpoints nil)))))))
