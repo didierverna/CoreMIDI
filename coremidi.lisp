@@ -235,7 +235,7 @@ is installed."
 					 :pointer handled))))
 	     :name "Packets handler")))))
 
-(defun register-handler
+(defun register-message-handler
     (source message handler &optional (client *midi-client*)
      &aux (client-handlers (client-handlers client))
        (source-handlers (assoc source client-handlers)))
