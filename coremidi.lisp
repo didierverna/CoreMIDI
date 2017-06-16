@@ -75,16 +75,16 @@ Properties are:
 :client
 :in-port and :out-port
 :sources
-:handlers
+:message-handlers
 :virtual-endpoints")
 
-(defun client-handlers (&optional (client *midi-client*))
-  "Return CLIENT's handlers."
-  (getf client :handlers))
-(defun (setf client-handlers)
+(defun client-message-handlers (&optional (client *midi-client*))
+  "Return CLIENT's message handlers."
+  (getf client :message-handlers))
+(defun (setf client-message-handlers)
     (handlers &optional (client *midi-client*))
-  "Set CLIENT's handlers."
-  (setf (getf client :handlers) handlers))
+  "Set CLIENT's message handlers."
+  (setf (getf client :message-handlers) handlers))
 
 
 ;; ==========================================================================
@@ -93,7 +93,7 @@ Properties are:
 
 (defun handle-packet
     (packet source
-     &aux (handlers (cdr (assoc source (client-handlers))))
+     &aux (handlers (cdr (assoc source (client-message-handlers))))
        (i 0))
   "Handle PACKET coming from SOURCE.
 Each MIDI message in PACKET is dispatched to the appropriate handler, if one
@@ -237,15 +237,16 @@ is installed."
 
 (defun register-message-handler
     (source message handler &optional (client *midi-client*)
-     &aux (client-handlers (client-handlers client))
-       (source-handlers (assoc source client-handlers)))
+     &aux (message-handlers (client-message-handlers client))
+	  (source-handlers (assoc source message-handlers)))
   "Register HANDLER to process MIDI MESSAGEs coming from SOURCE."
   (unless source-handlers
     (port-connect-source
      (getf client :in-port) source (cffi-sys:make-pointer source))
     (pushnew source (getf client :sources))
     (setf source-handlers (list source)
-	  (client-handlers client) (cons source-handlers client-handlers)))
+	  (client-message-handlers client) (cons source-handlers
+						 message-handlers)))
   (setf (getf (cdr source-handlers) message) handler))
 
 
@@ -345,5 +346,5 @@ is installed."
 		      :in-port (cffi:mem-ref in-port 'port-ref)
 		      :out-port (cffi:mem-ref out-port 'port-ref)
 		      :sources nil
-		      :handlers nil
+		      :message-handlers nil
 		      :virtual-endpoints nil)))))))
