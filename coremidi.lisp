@@ -49,7 +49,7 @@ Properties are:
 
 (defun client-in-action-handlers (&optional (client *midi-client*))
   "Return CLIENT's input action handlers."
-  (getf *midi-client* :in-action-handlers))
+  (getf client :in-action-handlers))
 (defun (setf client-in-action-handlers)
     (handlers &optional (client *midi-client*))
   "Set CLIENT's input action handlers."
