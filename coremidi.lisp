@@ -139,7 +139,7 @@ is installed."
 		;; Pitch Wheel Range
 		((and (>= status +pitch-wheel-range+)
 		      (< status +system-exclusive+))
-		 (alexandria:when-let*
+		 (alexandria:when-let
 		     ((handler (getf handlers +pitch-wheel-range+))
 		      (channel (1+ (logand status #x0f)))
 		      (lsb (cffi:mem-aref data :unsigned-char (+ i 1)))
@@ -152,7 +152,7 @@ is installed."
 		 )
 		;; Song Position Pointer
 		((= status +song-position-pointer+)
-		 (alexandria:when-let*
+		 (alexandria:when-let
 		     ((handler (getf handlers +song-position-pointer+))
 		      (lsb (cffi:mem-aref data :unsigned-char (+ i 1)))
 		      (msb (cffi:mem-aref data :unsigned-char (+ i 2))))
@@ -160,7 +160,7 @@ is installed."
 		 (incf i 3))
 		;; Song Select
 		((= status +song-select+)
-		 (alexandria:when-let*
+		 (alexandria:when-let
 		     ((handler (getf handlers +song-select+))
 		      (data1 (cffi:mem-aref data :unsigned-char (+ i 1))))
 		   (funcall handler data1))
