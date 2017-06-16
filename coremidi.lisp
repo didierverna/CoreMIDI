@@ -1,5 +1,36 @@
 (in-package :coremidi)
 
+;; ==========================================================================
+;; MIDI Messages
+;; ==========================================================================
+
+(defconstant +note-off+                #x80)
+(defconstant +note-on+                 #x90)
+(defconstant +polyphonic-aftertouch+   #xA0)
+(defconstant +control/mode-change+     #xB0)
+(defconstant +program-change+          #xC0)
+(defconstant +channel-aftertouch+      #xD0)
+(defconstant +pitch-wheel-range+       #xE0)
+(defconstant +system-exclusive+        #xF0)
+;; System Common
+;;           Undefined                 #xF1
+(defconstant +song-position-pointer+   #xF2)
+(defconstant +song-select+             #xF3)
+;;           Undefined                 #xF4
+;;           Undefined                 #xF5
+(defconstant +tune-request+            #xF6)
+(defconstant +end-of-system-exclusive+ #xF7)
+;; System Real Time
+(defconstant +timing-clock+            #xF8)
+;;           Undefined                 #xF9
+(defconstant +start+                   #xFA)
+(defconstant +continue+                #xFB)
+(defconstant +stop+                    #xFC)
+;;           Undefined                 #xFD
+(defconstant +active-sensing+          #xFE)
+(defconstant +system-reset+            #xFF)
+
+
 (defun display-name (object)
   "Return OBJECT's display name property."
   (object-string-property object "displayName"))
@@ -56,37 +87,15 @@ Properties are:
   (setf (getf client :in-action-handlers) handlers))
 
 
-(defconstant +note-off+                #x80)
-(defconstant +note-on+                 #x90)
-(defconstant +polyphonic-aftertouch+   #xA0)
-(defconstant +control/mode-change+     #xB0)
-(defconstant +program-change+          #xC0)
-(defconstant +channel-aftertouch+      #xD0)
-(defconstant +pitch-wheel-range+       #xE0)
-(defconstant +system-exclusive+        #xF0)
-;; System Common
-;;           Undefined                 #xF1
-(defconstant +song-position-pointer+   #xF2)
-(defconstant +song-select+             #xF3)
-;;           Undefined                 #xF4
-;;           Undefined                 #xF5
-(defconstant +tune-request+            #xF6)
-(defconstant +end-of-system-exclusive+ #xF7)
-;; System Real Time
-(defconstant +timing-clock+            #xF8)
-;;           Undefined                 #xF9
-(defconstant +start+                   #xFA)
-(defconstant +continue+                #xFB)
-(defconstant +stop+                    #xFC)
-;;           Undefined                 #xFD
-(defconstant +active-sensing+          #xFE)
-(defconstant +system-reset+            #xFF)
+;; ==========================================================================
+;; Incoming MIDI Processing
+;; ==========================================================================
 
-(defun process-packet
+(defun handle-packet
     (packet source
      &aux (handlers (cdr (assoc source (client-in-action-handlers))))
 	  (i 0))
-  "Process PACKET coming from SOURCE.
+  "Handle PACKET coming from SOURCE.
 Each MIDI message in PACKET is dispatched to the appropriate handler, if one
 is installed."
   (unless handlers
@@ -189,7 +198,7 @@ is installed."
 	(packet (cffi:foreign-slot-pointer
 		 pktlist '(:struct packet-list) 'packet)))
     (loop :for i :from 0 :below packets-number
-	  :do (process-packet packet
+	  :do (handle-packet packet
 			      (cffi-sys:pointer-address src-conn-ref-con))
 	      (setf packet (cffi-sys:inc-pointer
 			    (cffi:foreign-slot-pointer packet '(:struct packet)
@@ -197,17 +206,51 @@ is installed."
 			    (cffi:foreign-slot-value packet '(:struct packet)
 						     'length))))))
 
-(defun set-midi-callback (source status handle)
-  "Register handle-function that process incoming MIDI message via input-port."
-  (let ((action-handlers (client-in-action-handlers)))
-    (let ((handle-plist (assoc source action-handlers)))
-      (unless handle-plist
-	(port-connect-source (getf *midi-client* :in-port) source (cffi-sys:make-pointer source))
-	(pushnew source (getf *midi-client* :connected-sources))
-	(let ((initial-plist (cons source (list +note-on+ nil +note-off+ nil +control/mode-change+ nil +pitch-wheel-range+ nil))))
-	  (setf (client-in-action-handlers) (cons initial-plist action-handlers)
-		handle-plist initial-plist)))
-      (setf (getf (cdr handle-plist) status) handle))))
+#-ccl
+(let (thread)
+  (defun create-incoming-packets-handler-thread ()
+    (unless thread
+      (setf thread
+	    (bt:make-thread
+	     (lambda ()
+	       (let ((lock (cffi:foreign-symbol-pointer "incoming_packets"))
+		     (ready
+		       (cffi:foreign-symbol-pointer "incoming_packet_ready"))
+		     (handled
+		       (cffi:foreign-symbol-pointer "incoming_packet_handled"))
+		     (flag (cffi:foreign-symbol-pointer "incomingPacketFlag"))
+		     (packet (cffi:foreign-symbol-pointer "incomingPacket"))
+		     (endpoint
+		       (cffi:foreign-symbol-pointer "incomingPacketEndpoint")))
+		 (cffi:foreign-funcall "pthread_mutex_lock" :pointer lock)
+		 (loop
+		   (cffi:foreign-funcall "pthread_cond_wait"
+					 :pointer ready :pointer lock)
+		   (let ((flag-value (cffi:mem-ref flag :int)))
+		     (assert (or (zerop flag-value) (= 1 flag-value))
+			     nil
+			     "Incoming packets handler thread out of sync.")
+		     (when (= 1 flag-value)
+		       (decf (cffi:mem-ref flag :int))
+		       (handle-packet (cffi:mem-ref packet :pointer)
+				      (cffi:mem-ref endpoint 'object-ref))))
+		   (cffi:foreign-funcall "pthread_cond_signal"
+					 :pointer handled))))
+	     :name "Incoming packets handler")))))
+
+(defun register-handler
+    (source message handler &optional (client *midi-client*)
+     &aux (action-handlers (client-in-action-handlers client))
+       (source-handlers (assoc source action-handlers)))
+  "Register HANDLER to process incoming MIDI MESSAGEs coming from SOURCE."
+  (unless source-handlers
+    (port-connect-source
+     (getf client :in-port) source (cffi-sys:make-pointer source))
+    (pushnew source (getf client :connected-sources))
+    (setf source-handlers (list source)
+	  (client-in-action-handlers client) (cons source-handlers
+						   action-handlers)))
+  (setf (getf (cdr source-handlers) message) handler))
 
 
 ;;; send-midi-message to destination
@@ -247,39 +290,6 @@ is installed."
   (dolist (end-pnt (getf client :virtual-endpoints))
     (endpoint-dispose end-pnt))
   (client-dispose (getf client :client)))
-
-#-ccl
-(let (thread)
-  (defun create-incoming-packets-handler-thread ()
-    (unless thread
-      (setf thread
-	    (bt:make-thread
-	     (lambda ()
-	       (let ((lock (cffi:foreign-symbol-pointer "incoming_packets"))
-		     (ready
-		       (cffi:foreign-symbol-pointer "incoming_packet_ready"))
-		     (handled
-		       (cffi:foreign-symbol-pointer "incoming_packet_handled"))
-		     (flag (cffi:foreign-symbol-pointer "incomingPacketFlag"))
-		     (packet (cffi:foreign-symbol-pointer "incomingPacket"))
-		     (endpoint
-		       (cffi:foreign-symbol-pointer "incomingPacketEndpoint")))
-		 (cffi:foreign-funcall "pthread_mutex_lock" :pointer lock)
-		 (loop
-		   (cffi:foreign-funcall "pthread_cond_wait"
-		     :pointer ready :pointer lock)
-		   (let ((flag-value (cffi:mem-ref flag :int)))
-		     (assert (or (zerop flag-value) (= 1 flag-value))
-			     nil
-			     "Incoming packets handler thread out of sync.")
-		     (when (= 1 flag-value)
-		       (decf (cffi:mem-ref flag :int))
-		       (process-packet
-			(cffi:mem-ref packet :pointer)
-			(cffi:mem-ref endpoint 'object-ref))))
-		   (cffi:foreign-funcall "pthread_cond_signal"
-		     :pointer handled))))
-	     :name "Incoming packets handler")))))
 
 (defvar *midi-notify-handler* nil)
 
