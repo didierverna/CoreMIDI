@@ -74,7 +74,7 @@
 Properties are:
 :client
 :in-port and :out-port
-:connected-sources
+:sources
 :handlers
 :virtual-endpoints")
 
@@ -246,7 +246,7 @@ is installed."
   (unless source-handlers
     (port-connect-source
      (getf client :in-port) source (cffi-sys:make-pointer source))
-    (pushnew source (getf client :connected-sources))
+    (pushnew source (getf client :sources))
     (setf source-handlers (list source)
 	  (client-handlers client) (cons source-handlers client-handlers)))
   (setf (getf (cdr source-handlers) message) handler))
@@ -282,7 +282,7 @@ is installed."
 (defun dispose-resources-of-client (client)
   "Disposes resources of given client."
   (let ((in-port (getf client :in-port)))
-    (dolist (src (getf client :connected-sources))
+    (dolist (src (getf client :sources))
       (port-disconnect-source in-port src))
     (port-dispose in-port))
   (port-dispose (getf client :out-port))
@@ -341,6 +341,6 @@ is installed."
 		(list :client client
 		      :in-port (cffi:mem-ref in-port 'port-ref)
 		      :out-port (cffi:mem-ref out-port 'port-ref)
-		      :connected-sources nil
+		      :sources nil
 		      :handlers nil
 		      :virtual-endpoints nil)))))))
