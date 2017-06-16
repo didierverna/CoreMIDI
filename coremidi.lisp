@@ -112,18 +112,18 @@ is installed."
 		;; Control/Mode Change
 		((and (>= status +control/mode-change+)
 		      (< status +program-change+))
-		 (alexandria:when-let*
-		     ((handler (getf handlers +control/mode-change+))
-		      (channel (1+ (logand status #x0f)))
-		      (number (cffi:mem-aref data :unsigned-char (+ i 1)))
-		      (value (if (or (< number #x60)
-				     (= number #x7A)
-				     ;; #### FIXME: not sure about this one
-				     (= number #x7E))
-				 (cffi:mem-aref data :unsigned-char (+ i 2))
-			       'unused)))
-		   (funcall handler channel number value))
-		 (incf i (if (eq value 'unused) 2 3)))
+		 (let* ((number (cffi:mem-aref data :unsigned-char (+ i 1)))
+			(value (if (or (< number #x60)
+				       (= number #x7A)
+				       ;; #### FIXME: not sure about this one
+				       (= number #x7E))
+				   (cffi:mem-aref data :unsigned-char (+ i 2))
+				   'unused)))
+		   (alexandria:when-let
+		       ((handler (getf handlers +control/mode-change+))
+			(channel (1+ (logand status #x0f))))
+		     (funcall handler channel number value))
+		   (incf i (if (eq value 'unused) 2 3))))
 		;; Program Change and Channel Aftertouch
 		;; Almost the same as Note On, Note Off and Polyphonic
 		;; Aftertouch, except that there is no data2.
