@@ -287,13 +287,10 @@ is installed."
     (endpoint-dispose end-pnt))
   (client-dispose (getf client :client)))
 
-(defvar *midi-notify-handler* nil)
 
-(defun add-midi-notify-callback (handle)
-  (alexandria:appendf *midi-notify-handler* (list handle)))
-
-(defun set-midi-notify-callback (handle)
-  (setf *midi-notify-handler* (list handle)))
+;; ==========================================================================
+;; MIDI Notifications
+;; ==========================================================================
 
 (defconstant +setup-changed+ 1)
 (defconstant +object-added+ 2)
@@ -303,14 +300,24 @@ is installed."
 (defconstant +serial-port-owner-changed+ 6)
 (defconstant +io-error+ 7)
 
+(defvar *midi-notify-handler* nil)
 
-(cffi:defcallback midi-notify-proc :void ((message :pointer) (ref-con :pointer))
+(defun add-midi-notify-callback (handle)
+  (alexandria:appendf *midi-notify-handler* (list handle)))
+
+(defun set-midi-notify-callback (handle)
+  (setf *midi-notify-handler* (list handle)))
+
+
+(cffi:defcallback handle-notification
+    :void ((message :pointer) (ref-con :pointer))
   (declare (ignorable message ref-con))
-  (cffi:with-foreign-slots ((message-id message-size) message (:struct notification))
+  (cffi:with-foreign-slots
+      ((message-id message-size) message (:struct notification))
     (handler-case
 	(dolist (h *midi-notify-handler*)
 	  (funcall h message-id message-size))
-      (error (c) (format t "~a error...while call midi-notify-proc~%" c)))))
+      (error (c) (format t "~a error...while call handle-notification~%" c)))))
 
 (defun initialize ()
   "Prepare a midi-client and required resources."
@@ -322,7 +329,7 @@ is installed."
 			(in-port-name "CommonLispClientInputPort")
 			(out-port-name "CommonLispClientOutputPort"))
 	(client-create client-name
-		       (cffi:callback midi-notify-proc)
+		       (cffi:callback handle-notification)
 		       (cffi-sys:null-pointer)
 		       client)
 	(let ((client (cffi:mem-ref client 'client-ref)))
