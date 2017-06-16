@@ -75,16 +75,16 @@ Properties are:
 :client
 :in-port and :out-port
 :connected-sources
-:in-action-handlers
+:handlers
 :virtual-endpoints")
 
-(defun client-in-action-handlers (&optional (client *midi-client*))
-  "Return CLIENT's input action handlers."
-  (getf client :in-action-handlers))
-(defun (setf client-in-action-handlers)
+(defun client-handlers (&optional (client *midi-client*))
+  "Return CLIENT's handlers."
+  (getf client :handlers))
+(defun (setf client-handlers)
     (handlers &optional (client *midi-client*))
-  "Set CLIENT's input action handlers."
-  (setf (getf client :in-action-handlers) handlers))
+  "Set CLIENT's handlers."
+  (setf (getf client :handlers) handlers))
 
 
 ;; ==========================================================================
@@ -93,8 +93,8 @@ Properties are:
 
 (defun handle-packet
     (packet source
-     &aux (handlers (cdr (assoc source (client-in-action-handlers))))
-	  (i 0))
+     &aux (handlers (cdr (assoc source (client-handlers))))
+       (i 0))
   "Handle PACKET coming from SOURCE.
 Each MIDI message in PACKET is dispatched to the appropriate handler, if one
 is installed."
@@ -240,16 +240,15 @@ is installed."
 
 (defun register-handler
     (source message handler &optional (client *midi-client*)
-     &aux (action-handlers (client-in-action-handlers client))
-       (source-handlers (assoc source action-handlers)))
+     &aux (client-handlers (client-handlers client))
+       (source-handlers (assoc source client-handlers)))
   "Register HANDLER to process incoming MIDI MESSAGEs coming from SOURCE."
   (unless source-handlers
     (port-connect-source
      (getf client :in-port) source (cffi-sys:make-pointer source))
     (pushnew source (getf client :connected-sources))
     (setf source-handlers (list source)
-	  (client-in-action-handlers client) (cons source-handlers
-						   action-handlers)))
+	  (client-handlers client) (cons source-handlers client-handlers)))
   (setf (getf (cdr source-handlers) message) handler))
 
 
@@ -343,5 +342,5 @@ is installed."
 		      :in-port (cffi:mem-ref in-port 'port-ref)
 		      :out-port (cffi:mem-ref out-port 'port-ref)
 		      :connected-sources nil
-		      :in-action-handlers nil
+		      :handlers nil
 		      :virtual-endpoints nil)))))))
