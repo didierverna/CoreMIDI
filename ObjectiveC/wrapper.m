@@ -3,38 +3,38 @@
 #import <pthread.h>
 
 
-pthread_mutex_t incoming_packets = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t incoming_packet_ready = PTHREAD_COND_INITIALIZER;
-pthread_cond_t incoming_packet_handled = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t packets = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t packet_ready = PTHREAD_COND_INITIALIZER;
+pthread_cond_t packet_handled = PTHREAD_COND_INITIALIZER;
 
-int incomingPacketFlag = 0;
-MIDIPacket* incomingPacket = NULL;
-MIDIEndpointRef incomingPacketEndpoint = 0;
+int packetFlag = 0;
+MIDIPacket* packet = NULL;
+MIDIEndpointRef packetEndpoint = 0;
 
-void handleIncomingPackets
+void handlePackets
 (MIDIPacketList *pktlist, void *readProcRefCon, void *srcConnRefCon)
 {
-  pthread_mutex_lock (&incoming_packets);
+  pthread_mutex_lock (&packets);
 
   int packetsNumber = pktlist->numPackets;
 
-  incomingPacket = &pktlist->packet[0];
-  incomingPacketEndpoint = (MIDIEndpointRef) srcConnRefCon;
+  packet = &pktlist->packet[0];
+  packetEndpoint = (MIDIEndpointRef) srcConnRefCon;
 
   int i = 0;
   while (i < packetsNumber)
     {
-      if (! incomingPacketFlag) incomingPacketFlag++;
+      if (! packetFlag) packetFlag++;
 
-      pthread_cond_signal (&incoming_packet_ready);
-      pthread_cond_wait (&incoming_packet_handled, &incoming_packets);
+      pthread_cond_signal (&packet_ready);
+      pthread_cond_wait (&packet_handled, &packets);
 
-      if (! incomingPacketFlag)
+      if (! packetFlag)
 	{
-	  incomingPacket = MIDIPacketNext (incomingPacket);
+	  packet = MIDIPacketNext (packet);
 	  i++;
 	}
     }
 
-  pthread_mutex_unlock (&incoming_packets);
+  pthread_mutex_unlock (&packets);
 }

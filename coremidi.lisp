@@ -189,9 +189,9 @@ is installed."
 ;;; below directly to the system. In other implementations, we need a C
 ;;; wrapper.
 #+ccl
-(cffi:defcallback handle-incoming-packets :void ((pktlist :pointer)
-						 (read-proc-ref-con :pointer)
-						 (src-conn-ref-con :pointer))
+(cffi:defcallback handle-packets :void ((pktlist :pointer)
+					(read-proc-ref-con :pointer)
+					(src-conn-ref-con :pointer))
   (declare (ignore read-proc-ref-con))
   (let ((packets-number (cffi:foreign-slot-value
 			 pktlist '(:struct packet-list) 'num-packets))
@@ -208,20 +208,17 @@ is installed."
 
 #-ccl
 (let (thread)
-  (defun create-incoming-packets-handler-thread ()
+  (defun create-packets-handler-thread ()
     (unless thread
       (setf thread
 	    (bt:make-thread
 	     (lambda ()
-	       (let ((lock (cffi:foreign-symbol-pointer "incoming_packets"))
-		     (ready
-		       (cffi:foreign-symbol-pointer "incoming_packet_ready"))
-		     (handled
-		       (cffi:foreign-symbol-pointer "incoming_packet_handled"))
-		     (flag (cffi:foreign-symbol-pointer "incomingPacketFlag"))
-		     (packet (cffi:foreign-symbol-pointer "incomingPacket"))
-		     (endpoint
-		       (cffi:foreign-symbol-pointer "incomingPacketEndpoint")))
+	       (let ((lock (cffi:foreign-symbol-pointer "packets"))
+		     (ready (cffi:foreign-symbol-pointer "packet_ready"))
+		     (handled (cffi:foreign-symbol-pointer "packet_handled"))
+		     (flag (cffi:foreign-symbol-pointer "packetFlag"))
+		     (packet (cffi:foreign-symbol-pointer "packet"))
+		     (endpoint (cffi:foreign-symbol-pointer "packetEndpoint")))
 		 (cffi:foreign-funcall "pthread_mutex_lock" :pointer lock)
 		 (loop
 		   (cffi:foreign-funcall "pthread_cond_wait"
@@ -229,20 +226,20 @@ is installed."
 		   (let ((flag-value (cffi:mem-ref flag :int)))
 		     (assert (or (zerop flag-value) (= 1 flag-value))
 			     nil
-			     "Incoming packets handler thread out of sync.")
+			     "Packets handler thread out of sync.")
 		     (when (= 1 flag-value)
 		       (decf (cffi:mem-ref flag :int))
 		       (handle-packet (cffi:mem-ref packet :pointer)
 				      (cffi:mem-ref endpoint 'object-ref))))
 		   (cffi:foreign-funcall "pthread_cond_signal"
 					 :pointer handled))))
-	     :name "Incoming packets handler")))))
+	     :name "Packets handler")))))
 
 (defun register-handler
     (source message handler &optional (client *midi-client*)
      &aux (client-handlers (client-handlers client))
        (source-handlers (assoc source client-handlers)))
-  "Register HANDLER to process incoming MIDI MESSAGEs coming from SOURCE."
+  "Register HANDLER to process MIDI MESSAGEs coming from SOURCE."
   (unless source-handlers
     (port-connect-source
      (getf client :in-port) source (cffi-sys:make-pointer source))
@@ -330,13 +327,12 @@ is installed."
 		       client)
 	(let ((client (cffi:mem-ref client 'client-ref)))
 	  (input-port-create client in-port-name
-			     #+ccl(cffi:callback handle-incoming-packets)
-			     #-ccl(cffi:foreign-symbol-pointer
-				   "handleIncomingPackets")
+			     #+ccl(cffi:callback handle-packets)
+			     #-ccl(cffi:foreign-symbol-pointer "handlePackets")
 			     (cffi-sys:null-pointer)
 			     in-port)
 	  (output-port-create client out-port-name out-port)
-	  #-ccl (create-incoming-packets-handler-thread)
+	  #-ccl (create-packets-handler-thread)
 	  (setf *midi-client*
 		(list :client client
 		      :in-port (cffi:mem-ref in-port 'port-ref)
