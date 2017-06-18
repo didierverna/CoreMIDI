@@ -42,37 +42,6 @@
 
 
 ;; ==========================================================================
-;; MIDI Messages
-;; ==========================================================================
-
-(defconstant +note-off+                #x80)
-(defconstant +note-on+                 #x90)
-(defconstant +polyphonic-aftertouch+   #xA0)
-(defconstant +control/mode-change+     #xB0)
-(defconstant +program-change+          #xC0)
-(defconstant +channel-aftertouch+      #xD0)
-(defconstant +pitch-wheel-range+       #xE0)
-(defconstant +system-exclusive+        #xF0)
-;; System Common
-;;           Undefined                 #xF1
-(defconstant +song-position-pointer+   #xF2)
-(defconstant +song-select+             #xF3)
-;;           Undefined                 #xF4
-;;           Undefined                 #xF5
-(defconstant +tune-request+            #xF6)
-(defconstant +end-of-system-exclusive+ #xF7)
-;; System Real Time
-(defconstant +timing-clock+            #xF8)
-;;           Undefined                 #xF9
-(defconstant +start+                   #xFA)
-(defconstant +continue+                #xFB)
-(defconstant +stop+                    #xFC)
-;;           Undefined                 #xFD
-(defconstant +active-sensing+          #xFE)
-(defconstant +system-reset+            #xFF)
-
-
-;; ==========================================================================
 ;; The Client Structure
 ;; ==========================================================================
 
@@ -106,6 +75,33 @@ Properties are:
 ;; ==========================================================================
 ;; Incoming Messages Processing
 ;; ==========================================================================
+
+(defconstant +note-off+                #x80)
+(defconstant +note-on+                 #x90)
+(defconstant +polyphonic-aftertouch+   #xA0)
+(defconstant +control/mode-change+     #xB0)
+(defconstant +program-change+          #xC0)
+(defconstant +channel-aftertouch+      #xD0)
+(defconstant +pitch-wheel-range+       #xE0)
+(defconstant +system-exclusive+        #xF0)
+;; System Common
+;;           Undefined                 #xF1
+(defconstant +song-position-pointer+   #xF2)
+(defconstant +song-select+             #xF3)
+;;           Undefined                 #xF4
+;;           Undefined                 #xF5
+(defconstant +tune-request+            #xF6)
+(defconstant +end-of-system-exclusive+ #xF7)
+;; System Real Time
+(defconstant +timing-clock+            #xF8)
+;;           Undefined                 #xF9
+(defconstant +start+                   #xFA)
+(defconstant +continue+                #xFB)
+(defconstant +stop+                    #xFC)
+;;           Undefined                 #xFD
+(defconstant +active-sensing+          #xFE)
+(defconstant +system-reset+            #xFF)
+
 
 (defun handle-packet
     (packet source
