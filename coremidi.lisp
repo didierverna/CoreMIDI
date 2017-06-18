@@ -57,7 +57,6 @@
 	  for i from 0
 	  do (format t "~2d:  ~a~%" i (display-name dst)))))
 
-
 (defun find-source (name)
   "Returns a source which has a same name."
   (find name (all-endpoints :input)
@@ -68,6 +67,10 @@
   (find name (all-endpoints :output)
 	:test #'string= :key #'display-name))
 
+
+;; ==========================================================================
+;; The Client Structure
+;; ==========================================================================
 
 (defvar *midi-client* nil
   "The current MIDI client as a property-list.
@@ -323,8 +326,13 @@ is installed."
 	  (funcall h message-id message-size))
       (error (c) (format t "~a error...while call handle-notification~%" c)))))
 
+
+;; ==========================================================================
+;; Client Maintenance
+;; ==========================================================================
+
 (defun initialize ()
-  "Prepare a midi-client and required resources."
+  "Initialize a new CoreMIDI client."
   (unless *midi-client*
     (cffi:with-foreign-objects ((client 'client-ref)
 				(in-port 'port-ref)
@@ -353,14 +361,14 @@ is installed."
 		      :notification-handlers nil
 		      :virtual-endpoints nil)))))))
 
-;; #### NOTE: is this needed? Doesn't MIDIClientDispose perform this cleanup?
-(defun dispose-resources-of-client (client)
-  "Disposes resources of given client."
+;; #### FIXME: is this needed? Doesn't MIDIClientDispose perform this cleanup?
+(defun dispose (client)
+  "Dispose of CLIENT."
   (let ((in-port (getf client :in-port)))
     (dolist (src (getf client :sources))
       (port-disconnect-source in-port src))
     (port-dispose in-port))
   (port-dispose (getf client :out-port))
-  (dolist (end-pnt (getf client :virtual-endpoints))
-    (endpoint-dispose end-pnt))
+  (dolist (end-point (getf client :virtual-endpoints))
+    (endpoint-dispose end-point))
   (client-dispose (getf client :client)))
