@@ -277,6 +277,10 @@ is installed."
       (packet-list-add pkt-buffer 1024 pkt timestamp data-length data)
       (send (getf *midi-client* :out-port) destination pkt-buffer))))
 
+(defun now ()
+  (* 1.0d-9 #+ccl(ccl::current-time-in-nanoseconds)
+	    #-ccl(cffi:foreign-funcall "mach_absolute_time" :int64)))
+
 (defun message-at
     (hosttime destination message channel data1 &optional data2)
   "Send MESSAGE on CHANNEL to DESTINATION at HOSTTIME."

@@ -4,11 +4,6 @@
   `(do () ((not ,test))
      ,@body))
 
-(defun now ()
-  (* 1.0d-9 #+ccl(ccl::current-time-in-nanoseconds)
-	    #-ccl(cffi:foreign-funcall "mach_absolute_time" :int64)))
-
-
 (defconstant +k-cf-string-encoding-utf-8+ #x08000100
   "The kCFStringEncodingUTF8 constant.")
 
