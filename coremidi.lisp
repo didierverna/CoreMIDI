@@ -309,13 +309,6 @@ is installed."
 (defconstant +serial-port-owner-changed+ 6)
 (defconstant +io-error+ 7)
 
-(defun register-notification-handler
-    (notification handler &optional (client *midi-client*)
-     &aux (handlers (client-notification-handlers client)))
-  "Register HANDLER to process CoreMIDI NOTIFICATION."
-  (setf (getf handlers notification) handler
-	(client-notification-handlers client) handlers))
-
 (cffi:defcallback handle-notification
     :void ((message :pointer) (ref-con :pointer))
   (declare (ignorable ref-con))
@@ -329,6 +322,13 @@ is installed."
 	(handler-case (funcall handler)
 	  (error (c)
 	    (format t "Error while handling notification: ~A~%" c)))))))
+
+(defun register-notification-handler
+    (notification handler &optional (client *midi-client*)
+     &aux (handlers (client-notification-handlers client)))
+  "Register HANDLER to process CoreMIDI NOTIFICATION."
+  (setf (getf handlers notification) handler
+	(client-notification-handlers client) handlers))
 
 
 ;; ==========================================================================
