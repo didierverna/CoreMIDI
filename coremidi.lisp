@@ -318,13 +318,17 @@ is installed."
 
 (cffi:defcallback handle-notification
     :void ((message :pointer) (ref-con :pointer))
-  (declare (ignorable message ref-con))
-  (cffi:with-foreign-slots
-      ((message-id message-size) message (:struct notification))
-    (handler-case
-	(dolist (h *midi-notify-handler*)
-	  (funcall h message-id message-size))
-      (error (c) (format t "~a error...while call handle-notification~%" c)))))
+  (declare (ignorable ref-con))
+  (alexandria:when-let ((handlers (client-notification-handlers)))
+    (cffi:with-foreign-slots
+	((message-id message-size) message (:struct notification))
+      ;; #### FIXME: I think we need to cast MESSAGE to another, bigger
+      ;; structure according to MESSAGE-ID (see MIDIServices.h), extract all
+      ;; relevant slots and pass them to the appropriate handler.
+      (alexandria:when-let ((handler (getf handlers message-id)))
+	(handler-case (funcall handler)
+	  (error (c)
+	    (format t "Error while handling notification: ~A~%" c)))))))
 
 
 ;; ==========================================================================
