@@ -287,9 +287,9 @@ is installed."
 (defun message-at
     (hosttime destination message channel data1 &optional data2)
   "Send MESSAGE on CHANNEL to DESTINATION at HOSTTIME."
-  (send-midi-message destination hosttime
-		     (+ (1- (alexandria:clamp channel 1 16)) message)
-		     data1 data2))
+  (send-message destination hosttime
+		(+ (1- (alexandria:clamp channel 1 16)) message)
+		data1 data2))
 
 (defun message (destination message channel data1 &optional data2)
   "Send MESSAGE on CHANNEL to DESTINATION immediately."
