@@ -335,15 +335,17 @@ is installed."
 ;; Client Maintenance
 ;; ==========================================================================
 
-(defun initialize ()
-  "Initialize a new CoreMIDI client."
+(defun initialize (&optional (name "CommonLisp"))
+  "Initialize a new CoreMIDI client named NAME (\"CommonLisp\" by default)."
   (unless *midi-client*
     (cffi:with-foreign-objects ((client 'client-ref)
 				(in-port 'port-ref)
 				(out-port 'port-ref))
-      (with-cf-strings ((client-name "CommonLispClient")
-			(in-port-name "CommonLispClientInputPort")
-			(out-port-name "CommonLispClientOutputPort"))
+      (with-cf-strings ((client-name (concatenate 'string name "Client"))
+			(in-port-name
+			 (concatenate 'string name "ClientInputPort"))
+			(out-port-name
+			 (concatenate 'string name "ClientOutputPort")))
 	(client-create client-name
 		       (cffi:callback handle-notification)
 		       (cffi-sys:null-pointer)
