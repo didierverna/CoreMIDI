@@ -1,5 +1,46 @@
 (in-package :coremidi)
 
+
+;; ==========================================================================
+;; System-Wide Utilities
+;; ==========================================================================
+
+(defun display-name (object)
+  "Return OBJECT's display name property."
+  (object-string-property object "displayName"))
+
+(defun system-endpoints (direction)
+  (multiple-value-bind (number-f get-f)
+      (ecase direction
+	(:input (values #'get-number-of-sources #'get-source))
+	(:output (values #'get-number-of-destinations #'get-destination)))
+    (loop :for i :from 0 :below (funcall number-f)
+	  :collect (funcall get-f i))))
+
+(defun system-sources      () (system-endpoints :input))
+(defun system-destinations () (system-endpoints :output))
+
+(defun print-system-endpoints (endpoints)
+  "Print the display name of ENDPOINTS."
+  (loop :for endpoint :in endpoints
+	:for i :from 0
+	:do (format t "~2d:  ~a~%" i (display-name endpoint))))
+
+(defun print-system-sources ()
+  (print-system-endpoints (system-sources)))
+(defun print-system-destinations ()
+  (print-system-endpoints (system-destinations)))
+
+(defun find-system-endpoint (name endpoints)
+  "Return endpoint having display NAME in ENDPOINTS."
+  (find name endpoints :test #'string= :key #'display-name))
+
+(defun find-system-source (name)
+  (find-system-endpoint name (system-sources)))
+(defun find-system-destination (name)
+  (find-system-endpoint name (system-destinations)))
+
+
 ;; ==========================================================================
 ;; MIDI Messages
 ;; ==========================================================================
@@ -29,43 +70,6 @@
 ;;           Undefined                 #xFD
 (defconstant +active-sensing+          #xFE)
 (defconstant +system-reset+            #xFF)
-
-
-(defun display-name (object)
-  "Return OBJECT's display name property."
-  (object-string-property object "displayName"))
-
-(defun all-endpoints (direction)
-  (multiple-value-bind (number-f get-f)
-      (ecase direction
-	(:input (values #'get-number-of-sources #'get-source))
-	(:output (values #'get-number-of-destinations #'get-destination)))
-    (loop for i from 0 below (funcall number-f)
-	  collect (funcall get-f i))))
-
-(defun list-of-sources ()
-  "print the name of sources in system."
-  (let ((all-sources (all-endpoints :input)))
-    (loop for src in all-sources
-	  for i from 0
-	  do (format t "~2d:  ~a~%" i (display-name src)))))
-
-(defun list-of-destinations ()
-  "print the name of destinations in system."
-  (let ((all-dest (all-endpoints :output)))
-    (loop for dst in all-dest
-	  for i from 0
-	  do (format t "~2d:  ~a~%" i (display-name dst)))))
-
-(defun find-source (name)
-  "Returns a source which has a same name."
-  (find name (all-endpoints :input)
-	:test #'string= :key #'display-name))
-
-(defun find-destination (name)
-  "Returns a destination which has a same name."
-  (find name (all-endpoints :output)
-	:test #'string= :key #'display-name))
 
 
 ;; ==========================================================================
