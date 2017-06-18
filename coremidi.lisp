@@ -97,7 +97,7 @@ Properties are:
 
 
 ;; ==========================================================================
-;; Incoming MIDI Processing
+;; Incoming Messages Processing
 ;; ==========================================================================
 
 (defun handle-packet
@@ -259,47 +259,39 @@ is installed."
   (setf (getf (cdr source-handlers) message) handler))
 
 
-;;; send-midi-message to destination
-(defun send-midi-message (destination timestamp status data1 data2)
-  (let (data-length bytes)
-    (if data2
-	(setq data-length 3
-	      bytes (list status data1 data2))
-      (setq data-length 2
-	    bytes (list status data1)))
-    (cffi:with-foreign-objects ((pkt-buffer :char 1024)
-				(data :unsigned-char data-length))
-      (loop for byte in (mapcar #'floor bytes)
-	    for i from 0
-	    do (setf (cffi:mem-aref data :unsigned-char i) byte))
-      (let ((pkt (packet-list-init pkt-buffer)))
-	(packet-list-add pkt-buffer 1024 pkt timestamp data-length data)
-	(send (getf *midi-client* :out-port) destination pkt-buffer)))))
+;; ==========================================================================
+;; Outgoing Messages Processing
+;; ==========================================================================
 
-(defun midi-send-at (hosttime destination status channel data1 &optional data2)
+(defun send-message (destination timestamp status data1 data2
+		     &aux (data-length (if data2 3 2))
+			  (bytes (if data2
+				     (list status data1 data2)
+				   (list status data1))))
+  (cffi:with-foreign-objects ((pkt-buffer :char 1024)
+			      (data :unsigned-char data-length))
+    (loop :for byte :in (mapcar #'floor bytes) ;; wat??
+	  :for i :from 0
+	  :do (setf (cffi:mem-aref data :unsigned-char i) byte))
+    (let ((pkt (packet-list-init pkt-buffer)))
+      (packet-list-add pkt-buffer 1024 pkt timestamp data-length data)
+      (send (getf *midi-client* :out-port) destination pkt-buffer))))
+
+(defun message-at
+    (hosttime destination message channel data1 &optional data2)
+  "Send MESSAGE on CHANNEL to DESTINATION at HOSTTIME."
   (send-midi-message destination hosttime
-		     (+ (1- (alexandria:clamp channel 1 16)) status)
+		     (+ (1- (alexandria:clamp channel 1 16)) message)
 		     data1 data2))
 
-(defun midi-send (destination status channel data1 &optional data2)
-  (apply #'midi-send-at
-    0 destination status channel data1 (when data2 (list data2))))
-
-;; #### NOTE: is this needed? Doesn't MIDIClientDispose perform this cleanup?
-(defun dispose-resources-of-client (client)
-  "Disposes resources of given client."
-  (let ((in-port (getf client :in-port)))
-    (dolist (src (getf client :sources))
-      (port-disconnect-source in-port src))
-    (port-dispose in-port))
-  (port-dispose (getf client :out-port))
-  (dolist (end-pnt (getf client :virtual-endpoints))
-    (endpoint-dispose end-pnt))
-  (client-dispose (getf client :client)))
+(defun message (destination message channel data1 &optional data2)
+  "Send MESSAGE on CHANNEL to DESTINATION immediately."
+  (apply #'message-at
+    0 destination message channel data1 (when data2 (list data2))))
 
 
 ;; ==========================================================================
-;; MIDI Notifications
+;; CoreMIDI Notifications Processing
 ;; ==========================================================================
 
 (defconstant +setup-changed+ 1)
@@ -356,3 +348,15 @@ is installed."
 		      :message-handlers nil
 		      :notification-handlers nil
 		      :virtual-endpoints nil)))))))
+
+;; #### NOTE: is this needed? Doesn't MIDIClientDispose perform this cleanup?
+(defun dispose-resources-of-client (client)
+  "Disposes resources of given client."
+  (let ((in-port (getf client :in-port)))
+    (dolist (src (getf client :sources))
+      (port-disconnect-source in-port src))
+    (port-dispose in-port))
+  (port-dispose (getf client :out-port))
+  (dolist (end-pnt (getf client :virtual-endpoints))
+    (endpoint-dispose end-pnt))
+  (client-dispose (getf client :client)))
